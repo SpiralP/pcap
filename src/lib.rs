@@ -46,24 +46,13 @@
 //! }
 //! ```
 
-#![cfg_attr(feature = "clippy", feature(plugin))]
-#![cfg_attr(feature = "clippy", plugin(clippy))]
-#![cfg_attr(feature = "clippy", allow(redundant_closure_call))]
-
 #[cfg(feature = "tokio")]
-extern crate futures;
-extern crate libc;
-#[cfg(feature = "tokio")]
-extern crate mio;
-#[cfg(feature = "tokio")]
-extern crate tokio_core;
-#[cfg(target_os = "windows")]
-extern crate widestring;
-#[cfg(target_os = "windows")]
-extern crate winapi;
+pub mod tokio;
+mod unique;
 
-use unique::Unique;
-
+use self::unique::Unique;
+use self::Error::*;
+use pcap_sys as raw;
 use std::borrow::Borrow;
 use std::ffi::{self, CStr, CString};
 use std::fmt;
@@ -77,16 +66,6 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::Path;
 use std::ptr;
 use std::slice;
-
-use self::Error::*;
-
-#[cfg(target_os = "windows")]
-use widestring::WideCString;
-
-mod raw;
-#[cfg(feature = "tokio")]
-pub mod tokio;
-mod unique;
 
 /// An error received from pcap
 #[derive(Debug, PartialEq)]
@@ -205,18 +184,9 @@ impl Device {
 
     /// Returns the default Device suitable for captures according to pcap_lookupdev,
     /// or an error from pcap.
-    #[cfg(not(target_os = "windows"))]
     pub fn lookup() -> Result<Device, Error> {
         with_errbuf(|err| unsafe {
             cstr_to_string(raw::pcap_lookupdev(err))?
-                .map(|name| Device::new(name, None))
-                .ok_or_else(|| Error::new(err))
-        })
-    }
-    #[cfg(target_os = "windows")]
-    pub fn lookup() -> Result<Device, Error> {
-        with_errbuf(|err| unsafe {
-            wstr_to_string(raw::pcap_lookupdev(err))?
                 .map(|name| Device::new(name, None))
                 .ok_or_else(|| Error::new(err))
         })
@@ -263,12 +233,12 @@ pub struct Linktype(pub i32);
 
 impl Linktype {
     /// Gets the name of the link type, such as EN10MB
-    pub fn get_name(&self) -> Result<String, Error> {
+    pub fn get_name(self) -> Result<String, Error> {
         cstr_to_string(unsafe { raw::pcap_datalink_val_to_name(self.0) })?.ok_or(InvalidLinktype)
     }
 
     /// Gets the description of a link type.
-    pub fn get_description(&self) -> Result<String, Error> {
+    pub fn get_description(self) -> Result<String, Error> {
         cstr_to_string(unsafe { raw::pcap_datalink_val_to_description(self.0) })?
             .ok_or(InvalidLinktype)
     }
@@ -518,13 +488,7 @@ pub enum TimestampType {
 #[deprecated(note = "Renamed to TimestampType")]
 pub type TstampType = TimestampType;
 
-#[repr(u32)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum Direction {
-    InOut = raw::PCAP_D_INOUT,
-    In = raw::PCAP_D_IN,
-    Out = raw::PCAP_D_OUT,
-}
+pub type Direction = raw::pcap_direction_t;
 
 impl Capture<Inactive> {
     /// Opens a capture handle for a device. You can pass a `Device` or an `&str` device
@@ -674,7 +638,7 @@ impl<T: Activated + ?Sized> Capture<T> {
     /// from. This buffer has a finite length, so if the buffer fills completely new
     /// packets will be discarded temporarily. This means that in realtime situations,
     /// you probably want to minimize the time between calls of this next() method.
-    #[cfg_attr(feature = "clippy", allow(should_implement_trait))]
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> Result<Packet, Error> {
         unsafe {
             let mut header: *mut raw::pcap_pkthdr = ptr::null_mut();
@@ -685,8 +649,8 @@ impl<T: Activated + ?Sized> Capture<T> {
                 i if i >= 1 => {
                     // packet was read without issue
                     Ok(Packet::new(
-                        mem::transmute(&*header),
-                        slice::from_raw_parts(packet, (&*header).caplen as _),
+                        &*(&*header as *const raw::pcap_pkthdr as *const PacketHeader),
+                        slice::from_raw_parts(packet, (*header).caplen as _),
                     ))
                 }
                 0 => {
@@ -833,7 +797,7 @@ impl Savefile {
         unsafe {
             raw::pcap_dump(
                 *self.handle as _,
-                mem::transmute::<_, &raw::pcap_pkthdr>(packet.header),
+                &*(packet.header as *const PacketHeader as *const raw::pcap_pkthdr),
                 packet.data.as_ptr(),
             );
         }
@@ -880,21 +844,6 @@ fn cstr_to_string(ptr: *const libc::c_char) -> Result<Option<String>, Error> {
         None
     } else {
         Some(unsafe { CStr::from_ptr(ptr as _) }.to_str()?.to_owned())
-    };
-    Ok(string)
-}
-
-#[cfg(target_os = "windows")]
-#[inline]
-fn wstr_to_string(ptr: *const libc::c_char) -> Result<Option<String>, Error> {
-    let string = if ptr.is_null() {
-        None
-    } else {
-        Some(
-            unsafe { WideCString::from_ptr_str(ptr as _) }
-                .to_string()
-                .unwrap(),
-        )
     };
     Ok(string)
 }

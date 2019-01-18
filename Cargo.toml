@@ -1,5 +1,4 @@
 [package]
-
 name = "pcap"
 version = "0.7.0"
 authors = ["Sean Bowe <ewillbefull@gmail.com>"]
@@ -11,20 +10,17 @@ repository = "https://github.com/ebfull/pcap"
 documentation = "https://docs.rs/pcap"
 license = "MIT OR Apache-2.0"
 build = "build.rs"
+edition = "2018"
 
 [dependencies]
-libc = "0.2"
-clippy = { version = "0.0.*", optional = true }
-mio = { version = "0.6", optional = true }
-tokio-core = { version = "0.1", optional = true }
-futures = { version = "0.1", optional = true }
-
-[target.'cfg(target_os = "windows")'.dependencies]
-winapi = "0.2"
-widestring = "0.2.*"
+futures = { version = "0.1.25", optional = true }
+libc = "0.2.47"
+mio = { version = "0.6.16", optional = true }
+pcap-sys = { git = "https://github.com/SpiralP/rust-pcap-sys.git" }
+tokio-core = { version = "0.1.17", optional = true }
 
 [dev-dependencies]
-tempdir = "0.3"
+tempdir = "0.3.7"
 
 [features]
 # This feature enables access to the function Capture::savefile_append.
@@ -42,9 +38,6 @@ tokio = ["mio", "tokio-core", "futures"]
 
 # A shortcut to enable all features.
 full = ["pcap-savefile-append", "pcap-fopen-offline-precision", "tokio"]
-
-[lib]
-name = "pcap"
 
 [[example]]
 name = "listenlocalhost"
