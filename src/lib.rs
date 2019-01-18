@@ -453,7 +453,9 @@ impl Capture<Offline> {
     #[cfg(not(windows))]
     pub fn from_raw_fd(fd: RawFd) -> Result<Capture<Offline>, Error> {
         open_raw_fd(fd, b'r').and_then(|file| {
-            Capture::new_raw(None, |_, err| unsafe { raw::pcap_fopen_offline(file, err) })
+            Capture::new_raw(None, |_, err| unsafe {
+                raw::pcap_fopen_offline(file as _, err)
+            })
         })
     }
 
