@@ -80,7 +80,6 @@ pub enum Error {
     InsufficientMemory,
     InvalidInputString,
     IoError(std::io::ErrorKind),
-    #[cfg(not(windows))]
     InvalidRawFd,
     PcapDumpFlushFailure,
 }
@@ -107,7 +106,6 @@ impl fmt::Display for Error {
             InsufficientMemory => write!(f, "insufficient memory"),
             InvalidInputString => write!(f, "invalid input string (internal null)"),
             IoError(ref e) => write!(f, "io error occurred: {:?}", e),
-            #[cfg(not(windows))]
             InvalidRawFd => write!(f, "invalid raw file descriptor provided"),
             PcapDumpFlushFailure => write!(f, "pcap_dump_flush failed"),
         }
@@ -127,7 +125,6 @@ impl std::error::Error for Error {
             InsufficientMemory => "insufficient memory",
             InvalidInputString => "invalid input string (internal null)",
             IoError(..) => "io error occurred",
-            #[cfg(not(windows))]
             InvalidRawFd => "invalid raw file descriptor provided",
             PcapDumpFlushFailure => "pcap_dump_flush failed",
         }
@@ -316,8 +313,8 @@ impl Stat {
 #[repr(u32)]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum Precision {
-    Micro = 0,
-    Nano = 1,
+    Micro = raw::PCAP_TSTAMP_PRECISION_NANO,
+    Nano = raw::PCAP_TSTAMP_PRECISION_MICRO,
 }
 
 /// Phantom type representing an inactive capture handle.
@@ -488,7 +485,11 @@ pub enum TimestampType {
 #[deprecated(note = "Renamed to TimestampType")]
 pub type TstampType = TimestampType;
 
-pub type Direction = raw::pcap_direction_t;
+pub enum Direction {
+    InOut = raw::pcap_direction_t_PCAP_D_INOUT as _,
+    In = raw::pcap_direction_t_PCAP_D_IN as _,
+    Out = raw::pcap_direction_t_PCAP_D_OUT as _,
+}
 
 impl Capture<Inactive> {
     /// Opens a capture handle for a device. You can pass a `Device` or an `&str` device
@@ -517,10 +518,9 @@ impl Capture<Inactive> {
     }
 
     /// Set the time stamp type to be used by a capture device.
-    #[cfg(not(windows))]
-    pub fn tstamp_type(self, tstamp_type: TimestampType) -> Capture<Inactive> {
-        unsafe { raw::pcap_set_tstamp_type(*self.handle, tstamp_type as _) };
-        self
+    pub fn tstamp_type(self, tstamp_type: TimestampType) -> Result<Capture<Inactive>, Error> {
+        self.check_err(unsafe { raw::pcap_set_tstamp_type(*self.handle, tstamp_type as _) == 0 })?;
+        Ok(self)
     }
 
     /// Set promiscuous mode on or off. By default, this is off.
@@ -530,7 +530,6 @@ impl Capture<Inactive> {
     }
 
     /// Set rfmon mode on or off. The default is maintained by pcap.
-    #[cfg(not(windows))]
     pub fn rfmon(self, to: bool) -> Capture<Inactive> {
         unsafe { raw::pcap_set_rfmon(*self.handle, to as _) };
         self
@@ -545,10 +544,11 @@ impl Capture<Inactive> {
     }
 
     /// Set the time stamp precision returned in captures.
-    #[cfg(not(windows))]
-    pub fn precision(self, precision: Precision) -> Capture<Inactive> {
-        unsafe { raw::pcap_set_tstamp_precision(*self.handle, precision as _) };
-        self
+    pub fn precision(self, precision: Precision) -> Result<Capture<Inactive>, Error> {
+        self.check_err(unsafe {
+            raw::pcap_set_tstamp_precision(*self.handle, precision as _) == 0
+        })?;
+        Ok(self)
     }
 
     /// Set the snaplen size (the maximum length of a packet captured into the buffer).
@@ -558,6 +558,16 @@ impl Capture<Inactive> {
     pub fn snaplen(self, to: i32) -> Capture<Inactive> {
         unsafe { raw::pcap_set_snaplen(*self.handle, to) };
         self
+    }
+
+    pub fn immediate_mode(self, to: bool) -> Capture<Inactive> {
+        unsafe { raw::pcap_set_immediate_mode(*self.handle, if to { 1 } else { 0 }) };
+        self
+    }
+
+    /// Get the current datalink type for this capture handle.
+    pub fn get_datalink(&self) -> Linktype {
+        unsafe { Linktype(raw::pcap_datalink(*self.handle)) }
     }
 }
 
@@ -587,11 +597,6 @@ impl<T: Activated + ?Sized> Capture<T> {
         self.check_err(unsafe { raw::pcap_set_datalink(*self.handle, linktype.0) == 0 })
     }
 
-    /// Get the current datalink type for this capture handle.
-    pub fn get_datalink(&self) -> Linktype {
-        unsafe { Linktype(raw::pcap_datalink(*self.handle)) }
-    }
-
     /// Create a `Savefile` context for recording captured packets using this `Capture`'s
     /// configurations.
     pub fn savefile<P: AsRef<Path>>(&self, path: P) -> Result<Savefile, Error> {
@@ -604,10 +609,9 @@ impl<T: Activated + ?Sized> Capture<T> {
     /// Create a `Savefile` context for recording captured packets using this `Capture`'s
     /// configurations. The output is written to a raw file descriptor which is opened
     // in `"w"` mode.
-    #[cfg(not(windows))]
-    pub fn savefile_raw_fd(&self, fd: RawFd) -> Result<Savefile, Error> {
+    pub fn savefile_raw_fd(&self, fd: libc::c_int) -> Result<Savefile, Error> {
         open_raw_fd(fd, b'w').and_then(|file| {
-            let handle = unsafe { raw::pcap_dump_fopen(*self.handle, file) };
+            let handle = unsafe { raw::pcap_dump_fopen(*self.handle, file as _) };
             self.check_err(!handle.is_null())
                 .map(|_| Savefile::new(handle))
         })
@@ -629,7 +633,7 @@ impl<T: Activated + ?Sized> Capture<T> {
 
     /// Set the direction of the capture
     pub fn direction(&self, direction: Direction) -> Result<(), Error> {
-        self.check_err(unsafe { raw::pcap_setdirection(*self.handle, direction as u32 as _) == 0 })
+        self.check_err(unsafe { raw::pcap_setdirection(*self.handle, direction as _) == 0 })
     }
 
     /// Blocks until a packet is returned from the capture handle or an error occurs.
@@ -748,6 +752,20 @@ impl Capture<Active> {
             Ok(self)
         })
     }
+
+    #[cfg(windows)]
+    pub fn as_raw_fd(&self) -> libc::c_int {
+        unsafe {
+            let fd = raw::pcap_fileno(*self.handle);
+
+            match fd {
+                -1 => {
+                    panic!("Unable to get file descriptor for live capture");
+                }
+                fd => fd,
+            }
+        }
+    }
 }
 
 impl Capture<Dead> {
@@ -830,8 +848,7 @@ impl Drop for Savefile {
     }
 }
 
-#[cfg(not(windows))]
-pub fn open_raw_fd(fd: RawFd, mode: u8) -> Result<*mut libc::FILE, Error> {
+pub fn open_raw_fd(fd: libc::c_int, mode: u8) -> Result<*mut libc::FILE, Error> {
     let mode = vec![mode, 0];
     unsafe { libc::fdopen(fd, mode.as_ptr() as _).as_mut() }
         .map(|f| f as _)
@@ -840,12 +857,11 @@ pub fn open_raw_fd(fd: RawFd, mode: u8) -> Result<*mut libc::FILE, Error> {
 
 #[inline]
 fn cstr_to_string(ptr: *const libc::c_char) -> Result<Option<String>, Error> {
-    let string = if ptr.is_null() {
+    Ok(if ptr.is_null() {
         None
     } else {
-        Some(unsafe { CStr::from_ptr(ptr as _) }.to_str()?.to_owned())
-    };
-    Ok(string)
+        Some(unsafe { CStr::from_ptr(ptr) }.to_str()?.to_owned())
+    })
 }
 
 #[inline]
