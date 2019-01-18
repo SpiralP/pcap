@@ -1,8 +1,8 @@
 #![allow(dead_code)]
 
 use std::fmt;
-use std::mem;
 use std::marker::PhantomData;
+use std::mem;
 use std::ops::Deref;
 
 pub struct Unique<T: ?Sized> {

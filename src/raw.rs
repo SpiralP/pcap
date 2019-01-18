@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 #![allow(non_camel_case_types)]
 
-use libc::{c_int, c_uint, c_char, c_uchar, c_ushort, timeval, FILE};
-#[cfg(target_os = "windows")]
-use winapi::ws2def::SOCKADDR as sockaddr;
 #[cfg(not(target_os = "windows"))]
 use libc::sockaddr;
+use libc::{c_char, c_int, c_uchar, c_uint, c_ushort, timeval, FILE};
+#[cfg(target_os = "windows")]
+use winapi::ws2def::SOCKADDR as sockaddr;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -23,9 +23,9 @@ pub struct bpf_insn {
     pub k: c_uint,
 }
 
-pub enum pcap_t { }
+pub enum pcap_t {}
 
-pub enum pcap_dumper_t { }
+pub enum pcap_dumper_t {}
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -81,10 +81,8 @@ pub struct pcap_addr_t {
     pub dstaddr: *mut sockaddr,
 }
 
-pub type pcap_handler = Option<extern "C" fn(arg1: *mut c_uchar,
-                                             arg2: *const pcap_pkthdr,
-                                             arg3: *const c_uchar)
-                                             -> ()>;
+pub type pcap_handler =
+    Option<extern "C" fn(arg1: *mut c_uchar, arg2: *const pcap_pkthdr, arg3: *const c_uchar) -> ()>;
 
 extern "C" {
     pub fn pcap_lookupdev(arg1: *mut c_char) -> *mut c_char;
@@ -111,14 +109,23 @@ extern "C" {
     // pub fn pcap_open_live(arg1: *const c_char, arg2: c_int, arg3: c_int, arg4: c_int,
     //                       arg5: *mut c_char) -> *mut pcap_t;
     pub fn pcap_open_dead(arg1: c_int, arg2: c_int) -> *mut pcap_t;
-    pub fn pcap_open_dead_with_tstamp_precision(arg1: c_int, arg2: c_int,
-                                                 arg3: c_uint) -> *mut pcap_t;
-    pub fn pcap_open_offline_with_tstamp_precision(arg1: *const c_char, arg2: c_uint,
-                                                   arg3: *mut c_char) -> *mut pcap_t;
+    pub fn pcap_open_dead_with_tstamp_precision(
+        arg1: c_int,
+        arg2: c_int,
+        arg3: c_uint,
+    ) -> *mut pcap_t;
+    pub fn pcap_open_offline_with_tstamp_precision(
+        arg1: *const c_char,
+        arg2: c_uint,
+        arg3: *mut c_char,
+    ) -> *mut pcap_t;
     pub fn pcap_open_offline(arg1: *const c_char, arg2: *mut c_char) -> *mut pcap_t;
     #[cfg(feature = "pcap-fopen-offline-precision")]
-    pub fn pcap_fopen_offline_with_tstamp_precision(arg1: *mut FILE, arg2: c_uint,
-                                                    arg3: *mut c_char) -> *mut pcap_t;
+    pub fn pcap_fopen_offline_with_tstamp_precision(
+        arg1: *mut FILE,
+        arg2: c_uint,
+        arg3: *mut c_char,
+    ) -> *mut pcap_t;
     pub fn pcap_fopen_offline(arg1: *mut FILE, arg2: *mut c_char) -> *mut pcap_t;
     pub fn pcap_close(arg1: *mut pcap_t) -> ();
     // pub fn pcap_loop(arg1: *mut pcap_t, arg2: c_int,
@@ -126,8 +133,11 @@ extern "C" {
     // pub fn pcap_dispatch(arg1: *mut pcap_t, arg2: c_int, arg3: pcap_handler,
     //                      arg4: *mut c_uchar)-> c_int;
     // pub fn pcap_next(arg1: *mut pcap_t, arg2: *mut pcap_pkthdr) -> *const c_uchar;
-    pub fn pcap_next_ex(arg1: *mut pcap_t, arg2: *mut *mut pcap_pkthdr,
-                        arg3: *mut *const c_uchar) -> c_int;
+    pub fn pcap_next_ex(
+        arg1: *mut pcap_t,
+        arg2: *mut *mut pcap_pkthdr,
+        arg3: *mut *const c_uchar,
+    ) -> c_int;
     // pub fn pcap_breakloop(arg1: *mut pcap_t) -> ();
     pub fn pcap_stats(arg1: *mut pcap_t, arg2: *mut pcap_stat) -> c_int;
     pub fn pcap_setfilter(arg1: *mut pcap_t, arg2: *mut bpf_program) -> c_int;
@@ -139,8 +149,13 @@ extern "C" {
     // pub fn pcap_strerror(arg1: c_int) -> *const c_char;
     pub fn pcap_geterr(arg1: *mut pcap_t) -> *mut c_char;
     // pub fn pcap_perror(arg1: *mut pcap_t, arg2: *mut c_char) -> ();
-    pub fn pcap_compile(arg1: *mut pcap_t, arg2: *mut bpf_program, arg3: *const c_char,
-                        arg4: c_int, arg5: c_uint) -> c_int;
+    pub fn pcap_compile(
+        arg1: *mut pcap_t,
+        arg2: *mut bpf_program,
+        arg3: *const c_char,
+        arg4: c_int,
+        arg5: c_uint,
+    ) -> c_int;
     // pub fn pcap_compile_nopcap(arg1: c_int, arg2: c_int, arg3: *mut bpf_program,
     //                            arg4: *const c_char, arg5: c_int, arg6: c_uint) -> c_int;
     pub fn pcap_freecode(arg1: *mut bpf_program) -> ();
