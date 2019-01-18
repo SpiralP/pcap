@@ -564,11 +564,6 @@ impl Capture<Inactive> {
         unsafe { raw::pcap_set_immediate_mode(*self.handle, if to { 1 } else { 0 }) };
         self
     }
-
-    /// Get the current datalink type for this capture handle.
-    pub fn get_datalink(&self) -> Linktype {
-        unsafe { Linktype(raw::pcap_datalink(*self.handle)) }
-    }
 }
 
 ///# Activated captures include `Capture<Active>` and `Capture<Offline>`.
@@ -590,6 +585,11 @@ impl<T: Activated + ?Sized> Capture<T> {
             raw::pcap_free_datalinks(links);
             self.check_err(num > 0).and(Ok(vec))
         }
+    }
+
+    /// Get the current datalink type for this capture handle.
+    pub fn get_datalink(&self) -> Linktype {
+        unsafe { Linktype(raw::pcap_datalink(*self.handle)) }
     }
 
     /// Set the datalink type for the current capture handle.
