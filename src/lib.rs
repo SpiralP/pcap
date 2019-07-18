@@ -54,6 +54,7 @@ use self::unique::Unique;
 use self::Error::*;
 use pcap_sys as raw;
 use std::borrow::Borrow;
+use std::convert::TryInto;
 use std::ffi::{self, CStr, CString};
 use std::fmt;
 #[cfg(feature = "tokio")]
@@ -130,7 +131,7 @@ impl std::error::Error for Error {
         }
     }
 
-    fn cause(&self) -> Option<&std::error::Error> {
+    fn cause(&self) -> Option<&dyn std::error::Error> {
         match *self {
             MalformedError(ref e) => Some(e),
             _ => None,
@@ -445,7 +446,7 @@ impl Capture<Offline> {
         precision: Precision,
     ) -> Result<Capture<Offline>, Error> {
         Capture::new_raw(path.as_ref().to_str(), |path, err| unsafe {
-            raw::pcap_open_offline_with_tstamp_precision(path, precision as _, err)
+            raw::pcap_open_offline_with_tstamp_precision(path, precision as libc::c_uint, err)
         })
     }
 
@@ -521,19 +522,21 @@ impl Capture<Inactive> {
 
     /// Set the time stamp type to be used by a capture device.
     pub fn tstamp_type(self, tstamp_type: TimestampType) -> Result<Capture<Inactive>, Error> {
-        self.check_err(unsafe { raw::pcap_set_tstamp_type(*self.handle, tstamp_type as _) == 0 })?;
+        self.check_err(unsafe {
+            raw::pcap_set_tstamp_type(*self.handle, tstamp_type as libc::c_int) == 0
+        })?;
         Ok(self)
     }
 
     /// Set promiscuous mode on or off. By default, this is off.
     pub fn promisc(self, to: bool) -> Capture<Inactive> {
-        unsafe { raw::pcap_set_promisc(*self.handle, to as _) };
+        unsafe { raw::pcap_set_promisc(*self.handle, if to { 1 } else { 0 }) };
         self
     }
 
     /// Set rfmon mode on or off. The default is maintained by pcap.
     pub fn rfmon(self, to: bool) -> Capture<Inactive> {
-        unsafe { raw::pcap_set_rfmon(*self.handle, to as _) };
+        unsafe { raw::pcap_set_rfmon(*self.handle, if to { 1 } else { 0 }) };
         self
     }
 
@@ -548,7 +551,7 @@ impl Capture<Inactive> {
     /// Set the time stamp precision returned in captures.
     pub fn precision(self, precision: Precision) -> Result<Capture<Inactive>, Error> {
         self.check_err(unsafe {
-            raw::pcap_set_tstamp_precision(*self.handle, precision as _) == 0
+            raw::pcap_set_tstamp_precision(*self.handle, precision as libc::c_int) == 0
         })?;
         Ok(self)
     }
@@ -578,7 +581,7 @@ impl<T: Activated + ?Sized> Capture<T> {
             let mut vec = vec![];
             if num > 0 {
                 vec.extend(
-                    slice::from_raw_parts(links, num as _)
+                    slice::from_raw_parts(links, num.try_into().unwrap())
                         .iter()
                         .cloned()
                         .map(Linktype),
@@ -611,9 +614,10 @@ impl<T: Activated + ?Sized> Capture<T> {
     /// Create a `Savefile` context for recording captured packets using this `Capture`'s
     /// configurations. The output is written to a raw file descriptor which is opened
     // in `"w"` mode.
+    #[cfg(not(windows))]
     pub fn savefile_raw_fd(&self, fd: libc::c_int) -> Result<Savefile, Error> {
         open_raw_fd(fd, b'w').and_then(|file| {
-            let handle = unsafe { raw::pcap_dump_fopen(*self.handle, file as _) };
+            let handle = unsafe { raw::pcap_dump_fopen(*self.handle, file) };
             self.check_err(!handle.is_null())
                 .map(|_| Savefile::new(handle))
         })
@@ -635,7 +639,9 @@ impl<T: Activated + ?Sized> Capture<T> {
 
     /// Set the direction of the capture
     pub fn direction(&self, direction: Direction) -> Result<(), Error> {
-        self.check_err(unsafe { raw::pcap_setdirection(*self.handle, direction as _) == 0 })
+        self.check_err(unsafe {
+            raw::pcap_setdirection(*self.handle, direction as raw::pcap_direction_t) == 0
+        })
     }
 
     /// Blocks until a packet is returned from the capture handle or an error occurs.
@@ -656,7 +662,7 @@ impl<T: Activated + ?Sized> Capture<T> {
                     // packet was read without issue
                     Ok(Packet::new(
                         &*(&*header as *const raw::pcap_pkthdr as *const PacketHeader),
-                        slice::from_raw_parts(packet, (*header).caplen as _),
+                        slice::from_raw_parts(packet, (*header).caplen.try_into().unwrap()),
                     ))
                 }
                 0 => {
@@ -741,7 +747,7 @@ impl Capture<Active> {
     pub fn sendpacket<B: Borrow<[u8]>>(&mut self, buf: B) -> Result<(), Error> {
         let buf = buf.borrow();
         self.check_err(unsafe {
-            raw::pcap_sendpacket(*self.handle, buf.as_ptr() as _, buf.len() as _) == 0
+            raw::pcap_sendpacket(*self.handle, buf.as_ptr(), buf.len().try_into().unwrap()) == 0
         })
     }
 
@@ -801,8 +807,8 @@ impl<T: State + ?Sized> Drop for Capture<T> {
     }
 }
 
-impl<T: Activated> From<Capture<T>> for Capture<Activated> {
-    fn from(cap: Capture<T>) -> Capture<Activated> {
+impl<T: Activated> From<Capture<T>> for Capture<dyn Activated> {
+    fn from(cap: Capture<T>) -> Capture<dyn Activated> {
         unsafe { mem::transmute(cap) }
     }
 }
@@ -816,7 +822,7 @@ impl Savefile {
     pub fn write(&mut self, packet: &Packet) {
         unsafe {
             raw::pcap_dump(
-                *self.handle as _,
+                *self.handle as *mut libc::c_uchar,
                 &*(packet.header as *const PacketHeader as *const raw::pcap_pkthdr),
                 packet.data.as_ptr(),
             );
@@ -850,9 +856,9 @@ impl Drop for Savefile {
     }
 }
 
-pub fn open_raw_fd(fd: libc::c_int, mode: u8) -> Result<*mut libc::FILE, Error> {
+pub fn open_raw_fd(fd: libc::c_int, mode: i8) -> Result<*mut libc::FILE, Error> {
     let mode = vec![mode, 0];
-    unsafe { libc::fdopen(fd, mode.as_ptr() as _).as_mut() }
+    unsafe { libc::fdopen(fd, mode.as_ptr()).as_mut() }
         .map(|f| f as _)
         .ok_or(InvalidRawFd)
 }
@@ -872,7 +878,7 @@ where
     F: FnOnce(*mut libc::c_char) -> Result<T, Error>,
 {
     let mut errbuf = [0i8; 256];
-    func(errbuf.as_mut_ptr() as _)
+    func(errbuf.as_mut_ptr())
 }
 
 #[test]
