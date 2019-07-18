@@ -67,6 +67,13 @@ use std::os::unix::io::{AsRawFd, RawFd};
 use std::path::Path;
 use std::ptr;
 use std::slice;
+#[cfg(windows)]
+pub use winapi;
+#[cfg(windows)]
+use winapi::{
+    shared::{minwindef::DWORD, ntdef::HANDLE},
+    um::processenv::GetStdHandle,
+};
 
 /// An error received from pcap
 #[derive(Debug, PartialEq)]
@@ -82,6 +89,7 @@ pub enum Error {
     InvalidInputString,
     IoError(std::io::ErrorKind),
     InvalidRawFd,
+    InvalidStdHandle,
     PcapDumpFlushFailure,
 }
 
@@ -108,6 +116,7 @@ impl fmt::Display for Error {
             InvalidInputString => write!(f, "invalid input string (internal null)"),
             IoError(ref e) => write!(f, "io error occurred: {:?}", e),
             InvalidRawFd => write!(f, "invalid raw file descriptor provided"),
+            InvalidStdHandle => write!(f, "invalid std handle provided"),
             PcapDumpFlushFailure => write!(f, "pcap_dump_flush failed"),
         }
     }
@@ -127,6 +136,7 @@ impl std::error::Error for Error {
             InvalidInputString => "invalid input string (internal null)",
             IoError(..) => "io error occurred",
             InvalidRawFd => "invalid raw file descriptor provided",
+            InvalidStdHandle => "invalid raw file descriptor provided",
             PcapDumpFlushFailure => "pcap_dump_flush failed",
         }
     }
@@ -470,6 +480,15 @@ impl Capture<Offline> {
         open_raw_fd(fd, b'r').and_then(|file| {
             Capture::new_raw(None, |_, err| unsafe {
                 raw::pcap_fopen_offline_with_tstamp_precision(file, precision as _, err)
+            })
+        })
+    }
+
+    #[cfg(windows)]
+    pub fn from_std_handle(std_handle: DWORD) -> Result<Capture<Offline>, Error> {
+        open_std_handle(std_handle).and_then(|handle| {
+            Capture::new_raw(None, |_, err| unsafe {
+                raw::pcap_hopen_offline(handle as isize, err)
             })
         })
     }
@@ -856,11 +875,22 @@ impl Drop for Savefile {
     }
 }
 
+#[cfg(not(windows))]
 pub fn open_raw_fd(fd: libc::c_int, mode: i8) -> Result<*mut libc::FILE, Error> {
     let mode = vec![mode, 0];
     unsafe { libc::fdopen(fd, mode.as_ptr()).as_mut() }
         .map(|f| f as _)
         .ok_or(InvalidRawFd)
+}
+
+#[cfg(windows)]
+pub fn open_std_handle(std_handle: DWORD) -> Result<HANDLE, Error> {
+    let handle = unsafe { GetStdHandle(std_handle) };
+    if handle.is_null() {
+        Err(InvalidStdHandle)
+    } else {
+        Ok(handle)
+    }
 }
 
 #[inline]
