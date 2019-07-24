@@ -489,7 +489,7 @@ impl Capture<Offline> {
 
     /// Opens an offline capture handle from a pcap dump file, given a file descriptor.
     /// Takes an additional precision argument specifying the time stamp precision desired.
-    #[cfg(windows)]
+    #[cfg(all(windows, feature = "pcap-fopen-offline-precision"))]
     pub fn from_raw_handle_with_precision(
         handle: RawHandle,
         precision: Precision,
