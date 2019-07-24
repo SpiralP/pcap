@@ -64,16 +64,11 @@ use std::mem;
 use std::ops::Deref;
 #[cfg(not(windows))]
 use std::os::unix::io::{AsRawFd, RawFd};
+#[cfg(windows)]
+use std::os::windows::io::RawHandle;
 use std::path::Path;
 use std::ptr;
 use std::slice;
-#[cfg(windows)]
-pub use winapi;
-#[cfg(windows)]
-use winapi::{
-    shared::{minwindef::DWORD, ntdef::HANDLE},
-    um::processenv::GetStdHandle,
-};
 
 /// An error received from pcap
 #[derive(Debug, PartialEq)]
@@ -484,12 +479,23 @@ impl Capture<Offline> {
         })
     }
 
+    /// Opens an offline capture handle from a pcap dump file, given a file descriptor.
     #[cfg(windows)]
-    pub fn from_std_handle(std_handle: DWORD) -> Result<Capture<Offline>, Error> {
-        open_std_handle(std_handle).and_then(|handle| {
-            Capture::new_raw(None, |_, err| unsafe {
-                raw::pcap_hopen_offline(handle as isize, err)
-            })
+    pub fn from_raw_handle(handle: RawHandle) -> Result<Capture<Offline>, Error> {
+        Capture::new_raw(None, |_, err| unsafe {
+            raw::pcap_hopen_offline(handle as isize, err)
+        })
+    }
+
+    /// Opens an offline capture handle from a pcap dump file, given a file descriptor.
+    /// Takes an additional precision argument specifying the time stamp precision desired.
+    #[cfg(windows)]
+    pub fn from_raw_handle_with_precision(
+        handle: RawHandle,
+        precision: Precision,
+    ) -> Result<Capture<Offline>, Error> {
+        Capture::new_raw(None, |_, err| unsafe {
+            raw::pcap_hopen_offline_with_tstamp_precision(handle as isize, precision as _, err)
         })
     }
 }
@@ -876,21 +882,11 @@ impl Drop for Savefile {
 }
 
 #[cfg(not(windows))]
-pub fn open_raw_fd(fd: libc::c_int, mode: i8) -> Result<*mut libc::FILE, Error> {
+fn open_raw_fd(fd: libc::c_int, mode: i8) -> Result<*mut libc::FILE, Error> {
     let mode = vec![mode, 0];
     unsafe { libc::fdopen(fd, mode.as_ptr()).as_mut() }
         .map(|f| f as _)
         .ok_or(InvalidRawFd)
-}
-
-#[cfg(windows)]
-pub fn open_std_handle(std_handle: DWORD) -> Result<HANDLE, Error> {
-    let handle = unsafe { GetStdHandle(std_handle) };
-    if handle.is_null() {
-        Err(InvalidStdHandle)
-    } else {
-        Ok(handle)
-    }
 }
 
 #[inline]

@@ -18,9 +18,6 @@ mio = { version = "0.6.19", optional = true }
 pcap-sys = { git = "https://github.com/SpiralP/rust-pcap-sys.git" }
 tokio-core = { version = "0.1.17", optional = true }
 
-[target.'cfg(windows)'.dependencies]
-winapi = { version = "0.3.7", features = ["processenv", "winbase"] }
-
 [dev-dependencies]
 tempdir = "0.3.7"
 
