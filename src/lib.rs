@@ -458,7 +458,7 @@ impl Capture<Offline> {
     /// Opens an offline capture handle from a pcap dump file, given a file descriptor.
     #[cfg(not(windows))]
     pub fn from_raw_fd(fd: RawFd) -> Result<Capture<Offline>, Error> {
-        open_raw_fd(fd, b'r').and_then(|file| {
+        open_raw_fd(fd, "r").and_then(|file| {
             Capture::new_raw(None, |_, err| unsafe {
                 raw::pcap_fopen_offline(file as _, err)
             })
@@ -472,7 +472,7 @@ impl Capture<Offline> {
         fd: RawFd,
         precision: Precision,
     ) -> Result<Capture<Offline>, Error> {
-        open_raw_fd(fd, b'r').and_then(|file| {
+        open_raw_fd(fd, "r").and_then(|file| {
             Capture::new_raw(None, |_, err| unsafe {
                 raw::pcap_fopen_offline_with_tstamp_precision(file, precision as _, err)
             })
@@ -641,8 +641,8 @@ impl<T: Activated + ?Sized> Capture<T> {
     // in `"w"` mode.
     #[cfg(not(windows))]
     pub fn savefile_raw_fd(&self, fd: libc::c_int) -> Result<Savefile, Error> {
-        open_raw_fd(fd, b'w').and_then(|file| {
-            let handle = unsafe { raw::pcap_dump_fopen(*self.handle, file) };
+        open_raw_fd(fd, "w").and_then(|file| {
+            let handle = unsafe { raw::pcap_dump_fopen(*self.handle, file as _) };
             self.check_err(!handle.is_null())
                 .map(|_| Savefile::new(handle))
         })
@@ -882,9 +882,9 @@ impl Drop for Savefile {
 }
 
 #[cfg(not(windows))]
-fn open_raw_fd(fd: libc::c_int, mode: i8) -> Result<*mut libc::FILE, Error> {
-    let mode = vec![mode, 0];
-    unsafe { libc::fdopen(fd, mode.as_ptr()).as_mut() }
+fn open_raw_fd(fd: libc::c_int, mode: &str) -> Result<*mut libc::FILE, Error> {
+    let mode = CString::new(mode)?;
+    unsafe { libc::fdopen(fd, mode.as_ptr() as *const i8).as_mut() }
         .map(|f| f as _)
         .ok_or(InvalidRawFd)
 }

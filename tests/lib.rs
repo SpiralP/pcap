@@ -1,8 +1,8 @@
+use pcap::{Activated, Active, Capture, Error, Linktype, Offline, Packet, PacketHeader, Precision};
+use std::io;
 use std::ops::Add;
 use std::path::Path;
 use tempdir::TempDir;
-
-use pcap::{Activated, Active, Capture, Linktype, Offline, Packet, PacketHeader};
 
 #[test]
 fn read_packet_with_full_data() {
@@ -164,7 +164,7 @@ fn test_raw_fd_api() {
     let mut packets = Packets::new();
     for i in 0..N_PACKETS {
         packets.push(
-            1460408319 + i as libc::time_t,
+            1_460_408_319 + i as libc::time_t,
             1000 + i as libc::suseconds_t,
             1024,
             1024,
