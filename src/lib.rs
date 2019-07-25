@@ -53,6 +53,7 @@ mod unique;
 use self::unique::Unique;
 use self::Error::*;
 use pcap_sys as raw;
+pub use pcap_sys::linktypes;
 use std::borrow::Borrow;
 use std::convert::TryInto;
 use std::ffi::{self, CStr, CString};
