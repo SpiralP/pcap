@@ -26,7 +26,7 @@ branches:
 
 after_success: |
   cargo doc \
-  && echo '<meta http-equiv=refresh content=0;url=pcap_sys/index.html>' > target/doc/index.html && \
+  && echo '<meta http-equiv=refresh content=0;url=pcap/index.html>' > target/doc/index.html && \
   sudo pip install ghp-import && \
   ghp-import -n target/doc && \
   git push -qf https://${TOKEN}@github.com/${TRAVIS_REPO_SLUG}.git gh-pages
