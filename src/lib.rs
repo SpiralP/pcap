@@ -50,26 +50,26 @@
 pub mod tokio;
 mod unique;
 
-use self::unique::Unique;
-use self::Error::*;
+use self::{unique::Unique, Error::*};
 use pcap_sys as raw;
 pub use pcap_sys::linktypes;
-use std::borrow::Borrow;
-use std::convert::TryInto;
-use std::ffi::{self, CStr, CString};
-use std::fmt;
 #[cfg(feature = "tokio")]
 use std::io;
-use std::marker::PhantomData;
-use std::mem;
-use std::ops::Deref;
 #[cfg(not(windows))]
 use std::os::unix::io::{AsRawFd, RawFd};
 #[cfg(windows)]
 use std::os::windows::io::RawHandle;
-use std::path::Path;
-use std::ptr;
-use std::slice;
+use std::{
+    borrow::Borrow,
+    convert::TryInto,
+    ffi::{self, CStr, CString},
+    fmt,
+    marker::PhantomData,
+    mem,
+    ops::Deref,
+    path::Path,
+    ptr, slice,
+};
 
 /// An error received from pcap
 #[derive(Debug, PartialEq)]
@@ -351,7 +351,7 @@ unsafe impl Activated for Dead {}
 /// may or may not have particular capabilities. This trait is implemented by phantom
 /// types which allows us to punt these invariants to the type system to avoid runtime
 /// errors.
-pub unsafe trait State {}
+pub unsafe trait State: Send + Sync {}
 
 unsafe impl State for Inactive {}
 
