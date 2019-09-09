@@ -12,8 +12,8 @@ license = "MIT OR Apache-2.0"
 edition = "2018"
 
 [dependencies]
-futures = { version = "0.1.28", optional = true }
-libc = "0.2.60"
+futures = { version = "0.1.29", optional = true }
+libc = "0.2.62"
 mio = { version = "0.6.19", optional = true }
 pcap-sys = { git = "https://github.com/SpiralP/rust-pcap-sys.git" }
 tokio-core = { version = "0.1.17", optional = true }
