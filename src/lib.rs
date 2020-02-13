@@ -11,12 +11,10 @@
 //! ```ignore
 //! use pcap::Device;
 //!
-//! fn main() {
-//!     let mut cap = Device::lookup().unwrap().open().unwrap();
+//! let mut cap = Device::lookup().unwrap().open().unwrap();
 //!
-//!     while let Ok(packet) = cap.next() {
-//!         println!("received packet! {:?}", packet);
-//!     }
+//! while let Ok(packet) = cap.next() {
+//!     println!("received packet! {:?}", packet);
 //! }
 //! ```
 //!
@@ -33,16 +31,14 @@
 //! ```ignore
 //! use pcap::{Device,Capture};
 //!
-//! fn main() {
-//!     let main_device = Device::lookup().unwrap();
-//!     let mut cap = Capture::from_device(main_device).unwrap()
-//!                       .promisc(true)
-//!                       .snaplen(5000)
-//!                       .open().unwrap();
+//! let main_device = Device::lookup().unwrap();
+//! let mut cap = Capture::from_device(main_device).unwrap()
+//!                   .promisc(true)
+//!                   .snaplen(5000)
+//!                   .open().unwrap();
 //!
-//!     while let Ok(packet) = cap.next() {
-//!         println!("received packet! {:?}", packet);
-//!     }
+//! while let Ok(packet) = cap.next() {
+//!     println!("received packet! {:?}", packet);
 //! }
 //! ```
 
