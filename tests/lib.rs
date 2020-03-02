@@ -59,19 +59,8 @@ impl Packets {
         }
     }
 
-    pub fn push(
-        &mut self,
-        tv_sec: libc::c_long,
-        tv_usec: libc::c_long,
-        caplen: u32,
-        len: u32,
-        data: &[u8],
-    ) {
-        self.headers.push(PacketHeader {
-            ts: libc::timeval { tv_sec, tv_usec },
-            caplen,
-            len,
-        });
+    pub fn push(&mut self, ts: libc::timeval, caplen: u32, len: u32, data: &[u8]) {
+        self.headers.push(PacketHeader { ts, caplen, len });
         self.data.push(data.to_vec());
     }
 
@@ -104,8 +93,24 @@ impl<'a> Add for &'a Packets {
 #[test]
 fn capture_dead_savefile() {
     let mut packets = Packets::new();
-    packets.push(1_460_408_319, 1234, 1, 1, &[1]);
-    packets.push(1_460_408_320, 4321, 1, 1, &[2]);
+    packets.push(
+        libc::timeval {
+            tv_sec: 1_460_408_319,
+            tv_usec: 1234,
+        },
+        1,
+        1,
+        &[1],
+    );
+    packets.push(
+        libc::timeval {
+            tv_sec: 1_460_408_320,
+            tv_usec: 4321,
+        },
+        1,
+        1,
+        &[2],
+    );
 
     let dir = TempDir::new("pcap").unwrap();
     let tmpfile = dir.path().join("test.pcap");
@@ -123,11 +128,43 @@ fn capture_dead_savefile() {
 #[cfg(feature = "pcap-savefile-append")]
 fn capture_dead_savefile_append() {
     let mut packets1 = Packets::new();
-    packets1.push(1460408319, 1234, 1, 1, &[1]);
-    packets1.push(1460408320, 4321, 1, 1, &[2]);
+    packets1.push(
+        libc::timeval {
+            tv_sec: 1460408319,
+            tv_usec: 1234,
+        },
+        1,
+        1,
+        &[1],
+    );
+    packets1.push(
+        libc::timeval {
+            tv_sec: 1460408320,
+            tv_usec: 4321,
+        },
+        1,
+        1,
+        &[2],
+    );
     let mut packets2 = Packets::new();
-    packets2.push(1460408321, 2345, 1, 1, &[3]);
-    packets2.push(1460408322, 5432, 1, 1, &[4]);
+    packets2.push(
+        libc::timeval {
+            tv_sec: 1460408321,
+            tv_usec: 2345,
+        },
+        1,
+        1,
+        &[3],
+    );
+    packets2.push(
+        libc::timeval {
+            tv_sec: 1460408322,
+            tv_usec: 5432,
+        },
+        1,
+        1,
+        &[4],
+    );
     let packets = &packets1 + &packets2;
 
     let dir = TempDir::new("pcap").unwrap();
@@ -160,8 +197,10 @@ fn test_raw_fd_api() {
     let mut packets = Packets::new();
     for i in 0..N_PACKETS {
         packets.push(
-            1_460_408_319 + i as libc::time_t,
-            1000 + i as libc::suseconds_t,
+            libc::timeval {
+                tv_sec: 1_460_408_319 + i as libc::time_t,
+                tv_usec: 1000 + i as libc::suseconds_t,
+            },
             1024,
             1024,
             &data[i * 1024..(i + 1) * 1024],
