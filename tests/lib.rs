@@ -1,5 +1,5 @@
-use pcap::{Activated, Active, Capture, Error, Linktype, Offline, Packet, PacketHeader, Precision};
-use std::{io, ops::Add, path::Path};
+use pcap::{Activated, Active, Capture, Linktype, Offline, Packet, PacketHeader};
+use std::{ops::Add, path::Path};
 use tempdir::TempDir;
 
 #[test]
@@ -187,9 +187,10 @@ fn capture_dead_savefile_append() {
 #[test]
 #[cfg(not(windows))]
 fn test_raw_fd_api() {
+    use pcap::{Error, Precision};
     #[cfg(not(windows))]
     use std::os::unix::io::{FromRawFd, RawFd};
-    use std::{fs::File, io::prelude::*, thread};
+    use std::{fs::File, io, io::prelude::*, thread};
 
     // Create a total of more than 64K data (> max pipe buf size)
     const N_PACKETS: usize = 64;
