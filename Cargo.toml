@@ -13,8 +13,8 @@ edition = "2018"
 
 [dependencies]
 futures = { version = "0.3.4", optional = true }
-libc = "0.2.66"
-mio = { version = "0.6.21", optional = true }
+libc = "0.2.67"
+mio = { version = "0.7.0", optional = true }
 pcap-sys = { git = "https://github.com/SpiralP/rust-pcap-sys.git" }
 tokio-core = { version = "0.1.17", optional = true }
 
