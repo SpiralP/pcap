@@ -53,9 +53,6 @@ jobs:
           echo "##[add-path]C:\ProgramData\scoop\shims"
           scoop install aria2
           scoop install 7zip
-          Invoke-WebRequest -Uri 'https://nmap.org/npcap/dist/npcap-sdk-1.04.zip' -OutFile npcap-sdk-1.04.zip
-          7z x '-onpcap-sdk-1.04' npcap-sdk-1.04.zip
-          echo '::set-env name=PCAP_LIBDIR::npcap-sdk-1.04\Lib\x64'
           Invoke-WebRequest -Uri 'https://nmap.org/npcap/dist/npcap-0.9987.exe' -OutFile npcap-0.9987.exe
           7z x -y 'npcap-0.9987.exe' '$SYSDIR\wpcap.dll' '$SYSDIR\Packet.dll'
           echo '##[add-path].\$SYSDIR'

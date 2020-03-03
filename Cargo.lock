@@ -521,7 +521,7 @@ dependencies = [
 [[package]]
 name = "pcap-sys"
 version = "0.1.0"
-source = "git+https://github.com/SpiralP/rust-pcap-sys.git#2f92b864f7b8839e4196edf83572f292c38ea37d"
+source = "git+https://github.com/SpiralP/rust-pcap-sys.git#8281961d9a27fc8c1893593e776ec143cc9f91d1"
 dependencies = [
  "bindgen 0.53.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
