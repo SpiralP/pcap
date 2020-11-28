@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["pcap"] = [{"text":"impl&lt;'b&gt; <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.Deref.html\" title=\"trait core::ops::deref::Deref\">Deref</a> for <a class=\"struct\" href=\"pcap/struct.Packet.html\" title=\"struct pcap::Packet\">Packet</a>&lt;'b&gt;","synthetic":false,"types":["pcap::Packet"]}];
+implementors["pcap"] = [{"text":"impl&lt;'b&gt; Deref for Packet&lt;'b&gt;","synthetic":false,"types":[]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
